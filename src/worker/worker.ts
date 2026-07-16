@@ -29,7 +29,9 @@ interface PostRow {
   user_id: string;
 }
 
-async function process(job: Job<PublishJobData>): Promise<void> {
+// Tên KHÔNG được là `process` — sẽ che biến `process` toàn cục của Node,
+// khiến `process.pid` ở trên trỏ nhầm vào hàm này.
+async function processJob(job: Job<PublishJobData>): Promise<void> {
   const { postId } = job.data;
   const attempt = job.attemptsMade + 1;
   const startedAt = Date.now();
@@ -185,7 +187,7 @@ async function process(job: Job<PublishJobData>): Promise<void> {
   }
 }
 
-const worker = new Worker<PublishJobData>(POST_QUEUE_NAME, process, {
+const worker = new Worker<PublishJobData>(POST_QUEUE_NAME, processJob, {
   connection: redisConnectionOptions,
   concurrency: env.workerConcurrency,
   limiter: { max: 100, duration: 1000 }, // trần toàn cục 100 job/giây
