@@ -1,0 +1,42 @@
+{
+  "name": "auto-poster-saas",
+  "version": "0.1.0",
+  "description": "SaaS đăng bài tự động lên mạng xã hội — API + Queue + Worker",
+  "author": "",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build",
+    "start:api": "ts-node -r tsconfig-paths/register src/main.ts",
+    "start:api:dev": "nest start --watch",
+    "start:worker": "ts-node -r tsconfig-paths/register src/worker/worker.ts",
+    "start:feeder": "ts-node -r tsconfig-paths/register src/scheduler/feeder.ts",
+    "migrate": "ts-node scripts/migrate.ts",
+    "seed": "ts-node scripts/seed.ts",
+    "dev": "concurrently -n API,WORKER,FEEDER -c blue,green,magenta \"npm:start:api:dev\" \"npm:start:worker\" \"npm:start:feeder\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@nestjs/common": "^10.3.0",
+    "@nestjs/core": "^10.3.0",
+    "@nestjs/platform-express": "^10.3.0",
+    "bullmq": "^5.4.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "dotenv": "^16.4.1",
+    "ioredis": "^5.3.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.11.3",
+    "reflect-metadata": "^0.2.1",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.3.0",
+    "@types/node": "^20.11.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.11.0",
+    "concurrently": "^8.2.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.3"
+  }
+}

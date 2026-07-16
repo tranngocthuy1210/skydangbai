@@ -1,0 +1,369 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { TargetPicker } from '@/components/TargetPicker';
+import { PLATFORM_LABEL } from '@/lib/format';
+import { Icon, PLATFORM_ICON } from '@/lib/icons';
+import { ApiError, api } from '@/lib/api';
+import type { BlockedTargetsError, Target } from '@/lib/types';
+
+const STEPS = ['Nội dung', 'Mục tiêu', 'Lịch đăng'];
+
+export default function NewCampaignPage() {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+
+  const [name, setName] = useState('');
+  const [content, setContent] = useState('');
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [aiSpin, setAiSpin] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [scheduledAt, setScheduledAt] = useState('');
+
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<BlockedTargetsError['blockedTargets']>([]);
+
+  useEffect(() => {
+    api.getTargets().then(setTargets).catch(() => {});
+  }, []);
+
+  const chosen = targets.filter((t) => selected.includes(t.id));
+
+  async function suggestHashtags() {
+    if (!content.trim()) return;
+    setSuggesting(true);
+    try {
+      const res = await api.suggestHashtags(content);
+      setHashtags(res.hashtags);
+    } catch {
+      /* AI hỏng thì bỏ qua — không chặn user tạo bài. */
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    setBlocked([]);
+    try {
+      const res = await api.createCampaign({
+        name,
+        content,
+        targetIds: selected,
+        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+        hashtags,
+        aiSpin,
+      });
+      router.push(`/logs`);
+      return res;
+    } catch (e) {
+      // Backend chặn target không đăng được qua API chính thức → hiện rõ
+      // từng mục tiêu bị chặn kèm lý do, thay vì một câu lỗi chung chung.
+      if (e instanceof ApiError && e.status === 400) {
+        const body = e.body as BlockedTargetsError | undefined;
+        if (body?.blockedTargets?.length) {
+          setBlocked(body.blockedTargets);
+          setStep(1);
+        }
+      }
+      setError(e instanceof Error ? e.message : 'Lỗi không xác định');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const canNext =
+    step === 0 ? name.trim() !== '' && content.trim() !== '' : selected.length > 0;
+
+  const preview =
+    content + (hashtags.length ? '\n\n' + hashtags.map((h) => `#${h.replace(/^#/, '')}`).join(' ') : '');
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-slate-900">Tạo bài đăng</h1>
+
+      {/* Thanh tiến trình 3 bước */}
+      <ol className="mb-6 mt-4 flex items-center gap-2">
+        {STEPS.map((s, i) => (
+          <li key={s} className="flex flex-1 items-center gap-2">
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                i <= step ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'
+              }`}
+            >
+              {i + 1}
+            </span>
+            <span
+              className={`text-sm ${i <= step ? 'font-medium text-slate-900' : 'text-slate-400'}`}
+            >
+              {s}
+            </span>
+            {i < STEPS.length - 1 && <span className="h-px flex-1 bg-slate-200" />}
+          </li>
+        ))}
+      </ol>
+
+      {/* ===== Bước 1: Nội dung ===== */}
+      {step === 0 && (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+            <div>
+              <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700">
+                Tên chiến dịch
+              </label>
+              <input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Khuyến mãi tháng 7"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="content" className="mb-1 block text-sm font-medium text-slate-700">
+                Nội dung
+              </label>
+              <textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={7}
+                placeholder="Sale 50% toàn bộ sản phẩm, chỉ trong hôm nay!"
+                className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                {content.length.toLocaleString('vi-VN')} ký tự
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <Icon.Ai className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                AI
+              </p>
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={aiSpin}
+                  onChange={(e) => setAiSpin(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>
+                  Viết lại cho mỗi mục tiêu
+                  <span className="block text-xs text-slate-500">
+                    Mỗi Page nhận một biến thể khác câu chữ — tránh bị đánh dấu trùng lặp.
+                  </span>
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={suggestHashtags}
+                disabled={!content.trim() || suggesting}
+                className="mt-3 rounded-md border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+              >
+                {suggesting ? 'Đang gợi ý…' : 'Gợi ý hashtag'}
+              </button>
+
+              {hashtags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {hashtags.map((h) => (
+                    <span
+                      key={h}
+                      className="rounded-full bg-white px-2 py-0.5 text-xs text-indigo-700 ring-1 ring-indigo-200"
+                    >
+                      #{h.replace(/^#/, '')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Preview: tính năng đắt giá nhất của bước này.
+              Nỗi sợ đăng nhầm lên trang công ty là thứ khiến người ta không
+              dám dùng tự động hóa. Preview loại bỏ nỗi sợ đó. */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+              Xem trước
+            </p>
+            {chosen.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                Chọn mục tiêu ở bước sau để xem bài hiển thị thế nào trên từng nền tảng.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {chosen.slice(0, 3).map((t) => {
+                  const PlatformGlyph = PLATFORM_ICON[t.platform];
+                  return (
+                    <article key={t.id} className="rounded-lg border border-slate-200 p-3">
+                      <header className="mb-2 flex items-center gap-2">
+                        <PlatformGlyph
+                          className="h-4 w-4 text-slate-400"
+                          aria-hidden="true"
+                        />
+                        <span className="text-sm font-medium text-slate-900">{t.name}</span>
+                      </header>
+                      <p className="whitespace-pre-wrap text-sm text-slate-700">
+                        {preview || (
+                          <span className="text-slate-300">(chưa có nội dung)</span>
+                        )}
+                      </p>
+                    </article>
+                  );
+                })}
+                {aiSpin && (
+                  <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                    <Icon.Ai className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                    Bật viết lại: nội dung thực tế mỗi mục tiêu sẽ khác nhau đôi chút.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== Bước 2: Mục tiêu ===== */}
+      {step === 1 && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Đã chọn {selected.length} / {targets.filter((t) => t.is_publishable).length}{' '}
+              mục tiêu đăng được
+            </p>
+          </div>
+
+          {blocked.length > 0 && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-medium text-red-900">
+                Một số mục tiêu không đăng được qua API chính thức:
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {blocked.map((b) => (
+                  <li key={b.id} className="text-sm text-red-800">
+                    <strong>{b.name}</strong> — {b.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <TargetPicker
+            targets={targets}
+            selected={selected}
+            onToggle={(id) =>
+              setSelected((cur) =>
+                cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+              )
+            }
+          />
+        </div>
+      )}
+
+      {/* ===== Bước 3: Lịch đăng ===== */}
+      {step === 2 && (
+        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+          <div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input
+                type="radio"
+                checked={scheduledAt === ''}
+                onChange={() => setScheduledAt('')}
+                className="h-4 w-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Đăng ngay
+            </label>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input
+                type="radio"
+                checked={scheduledAt !== ''}
+                onChange={() => {
+                  const d = new Date(Date.now() + 3_600_000);
+                  d.setSeconds(0, 0);
+                  setScheduledAt(
+                    new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                      .toISOString()
+                      .slice(0, 16),
+                  );
+                }}
+                className="h-4 w-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Hẹn giờ
+            </label>
+            {scheduledAt !== '' && (
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="ml-6 mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            )}
+          </div>
+
+          {/* Tóm tắt: nút cuối phải phát biểu hậu quả của chính nó. */}
+          <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
+            <p className="font-medium">Tóm tắt</p>
+            <p className="mt-1">
+              {selected.length} bài · {chosen.length} mục tiêu ·{' '}
+              {[...new Set(chosen.map((t) => PLATFORM_LABEL[t.platform]))].join(', ')}
+            </p>
+            <p className="mt-0.5 text-slate-500">
+              {scheduledAt
+                ? `Đăng lúc ${new Date(scheduledAt).toLocaleString('vi-VN')}`
+                : 'Đăng ngay sau khi bấm nút'}
+            </p>
+          </div>
+
+          {error && blocked.length === 0 && (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ===== Điều hướng ===== */}
+      <div className="mt-6 flex justify-between">
+        <button
+          type="button"
+          onClick={() => (step === 0 ? router.back() : setStep(step - 1))}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          ← Quay lại
+        </button>
+
+        {step < 2 ? (
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setStep(step + 1)}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+          >
+            Tiếp →
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={submitting || selected.length === 0}
+            onClick={submit}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+          >
+            {/* Nút phải phát biểu hậu quả của chính nó: "Lên lịch 2 bài",
+                không phải "Xong". Icon máy bay giấy = hành động gửi đi. */}
+            {!submitting && <Icon.Send className="h-4 w-4" aria-hidden="true" />}
+            {submitting
+              ? 'Đang lên lịch…'
+              : `${scheduledAt ? 'Lên lịch' : 'Đăng'} ${selected.length} bài`}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
