@@ -1,0 +1,37 @@
+name: Đăng bài theo lịch (batch)
+
+# Chạy job đăng bài tại các mốc cố định, thay cho worker+feeder 24/7.
+#
+# ⚠️ Cron của GitHub tính theo GIỜ UTC và có thể TRỄ 5–15 phút khi hệ thống bận.
+# Mặc định dưới đây = 08:00 và 20:00 giờ Việt Nam (UTC+7) → 01:00 và 13:00 UTC.
+# Đổi giờ: sửa hai dòng cron. Ví dụ 07:00 VN = 00:00 UTC → '0 0 * * *'.
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 08:00 giờ Việt Nam
+    - cron: '0 13 * * *'  # 20:00 giờ Việt Nam
+  workflow_dispatch: {}   # nút "Run workflow" để chạy thử tay bất cứ lúc nào
+
+# Không chạy hai lần chồng nhau (nếu lần trước còn dở).
+concurrency:
+  group: post-scheduler
+  cancel-in-progress: false
+
+jobs:
+  post:
+    name: Đăng các bài đến hạn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cài dependencies
+        run: npm install
+      - name: Chạy batch đăng bài
+        run: npm run start:batch
+        env:
+          # Đặt các giá trị này ở: repo → Settings → Secrets and variables →
+          # Actions → New repository secret.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
