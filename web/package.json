@@ -1,8 +1,8 @@
 {
-  "name": "auto-poster-web",
+  "name": "skydangbai-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Frontend cho Auto-Poster SaaS — Next.js App Router",
+  "description": "Frontend cho SkyĐăngBài — Next.js App Router",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",

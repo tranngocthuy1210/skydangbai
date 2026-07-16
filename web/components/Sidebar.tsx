@@ -41,7 +41,7 @@ export function Sidebar() {
     <aside className="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="flex h-14 items-center gap-2 border-b border-slate-200 px-4">
         <Icon.Brand className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-        <span className="font-semibold">AutoPost</span>
+        <span className="font-semibold">SkyĐăngBài</span>
       </div>
 
       <nav className="flex-1 space-y-1 p-3">

@@ -1,7 +1,10 @@
-# Auto-Poster SaaS — Bộ khung đăng bài tự động
+# SkyĐăngBài — Hệ thống SaaS đăng bài tự động
 
-Hệ thống SaaS đăng bài tự động lên mạng xã hội, kiến trúc **tách API ↔ Queue ↔ Worker**.
-Stack: **NestJS · PostgreSQL · Redis + BullMQ · TypeScript**.
+Đăng bài tự động lên mạng xã hội, kiến trúc **tách API ↔ Queue ↔ Worker**.
+Stack: **NestJS · PostgreSQL · Redis + BullMQ · Next.js · TypeScript**.
+
+- **Frontend (demo):** https://skydangbai.vercel.app *(chưa deploy)*
+- **Backend:** chưa deploy — [xem vì sao](#-chưa-được-deploy-backend-công-khai)
 
 ## ⚖️ Quyết định kiến trúc: chỉ dùng API chính thức
 
@@ -89,9 +92,12 @@ VPS). Đặt worker lên serverless thì bài hẹn 20h sẽ không bao giờ đ
 Dùng để có tên miền công khai xem giao diện, khi chưa dựng backend.
 
 1. Vercel → **New Project** → chọn repo này.
-2. **Root Directory: `web`** ← bắt buộc, nếu không Vercel sẽ build nhầm backend.
-3. Environment Variables: `NEXT_PUBLIC_DEMO_MODE` = `1`
-4. Deploy.
+2. **Project Name: `skydangbai`** → tên miền sẽ là `skydangbai.vercel.app`.
+   (Subdomain `.vercel.app` là duy nhất toàn cầu; nếu trùng, Vercel tự thêm hậu tố.)
+3. **Root Directory: `web`** ← bắt buộc, nếu không Vercel thấy `package.json` ở gốc,
+   tưởng là dự án NestJS và build hỏng.
+4. Environment Variables: `NEXT_PUBLIC_DEMO_MODE` = `1`
+5. Deploy.
 
 Chế độ demo khiến frontend dùng dữ liệu mẫu ở [`web/lib/demo-data.ts`](web/lib/demo-data.ts)
 thay vì gọi API, và hiện nhãn *"Bản demo giao diện"* trên mọi trang. Không có nó,

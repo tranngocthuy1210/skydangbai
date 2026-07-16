@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AutoPost — Đăng bài tự động',
+  title: 'SkyĐăngBài — Đăng bài tự động',
   description: 'Hệ thống SaaS đăng bài tự động lên mạng xã hội',
 };
 
