@@ -1,0 +1,49 @@
+name: CI
+
+# Vì máy phát triển chưa cài Node, đây là nơi code được BIÊN DỊCH lần đầu.
+# Runner của GitHub (miễn phí) đóng vai trò trình biên dịch: bắt lỗi TypeScript,
+# tên import sai (vd tên icon Lucide đoán tay), lỗi kiểu — trước khi deploy.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # cho phép bấm chạy tay trong tab Actions
+
+jobs:
+  backend:
+    name: Backend — build + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Chưa có package-lock.json (npm install chưa từng chạy) → dùng
+      # `npm install`, không dùng `npm ci` (ci đòi lockfile).
+      - name: Cài dependencies
+        run: npm install
+      # `nest build` chạy tsc → biên dịch = typecheck toàn bộ backend.
+      - name: Build (nest build)
+        run: npm run build
+
+  web:
+    name: Frontend — typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cài dependencies
+        run: npm install
+      # tsc --noEmit: kiểm tra kiểu, đối chiếu tên icon Lucide với type thật.
+      - name: Typecheck
+        run: npm run typecheck
+      # next build: chứng minh app dựng được. Bật demo để không gọi API thật.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_DEMO_MODE: "1"
