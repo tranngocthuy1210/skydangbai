@@ -1,0 +1,40 @@
+name: Thiết lập Database (chạy tay)
+
+# Migrate (và tùy chọn seed dữ liệu demo) lên Neon — chạy trên compute của
+# GitHub, không cần Node ở máy. Bấm "Run workflow" trong tab Actions.
+#
+# Trước khi chạy, đặt các secret ở: repo → Settings → Secrets and variables →
+# Actions → New repository secret:
+#   DATABASE_URL   = chuỗi kết nối Neon (postgresql://...sslmode=require)
+#   TOKEN_ENC_KEY  = khóa 64 ký tự hex (chỉ cần khi seed)
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'Tạo dữ liệu demo (mock) sau khi migrate?'
+        type: boolean
+        default: true
+
+jobs:
+  setup:
+    name: Migrate + Seed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cài dependencies
+        run: npm install
+
+      - name: Migrate (tạo bảng)
+        run: npm run migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Seed dữ liệu demo (tùy chọn)
+        if: ${{ inputs.seed }}
+        run: npm run seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}

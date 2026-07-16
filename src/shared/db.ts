@@ -1,10 +1,15 @@
 import { Pool, PoolClient } from 'pg';
 import { env } from './env';
 
-// Pool dùng chung cho cả API, worker và feeder.
+// Postgres cloud (Neon...) bắt buộc SSL; Postgres local (Docker) thì không có.
+// Nhận diện qua host để tự chọn — nếu không, kết nối Neon sẽ bị từ chối.
+const isLocalDb = /@(localhost|127\.0\.0\.1|postgres)[:/]/.test(env.databaseUrl);
+
+// Pool dùng chung cho cả API, worker, feeder và batch.
 export const pool = new Pool({
   connectionString: env.databaseUrl,
   max: 10,
+  ssl: isLocalDb ? false : { rejectUnauthorized: false },
 });
 
 // Helper query trả về mảng rows cho gọn.
