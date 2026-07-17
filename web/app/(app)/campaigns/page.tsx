@@ -75,9 +75,17 @@ export default function CampaignsPage() {
             </thead>
             <tbody>
               {campaigns.map((c) => (
-                <tr key={c.id} className="border-b border-slate-100 last:border-0">
+                <tr
+                  key={c.id}
+                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                >
                   <td className="px-4 py-3">
-                    <span className="font-medium text-slate-900">{c.name}</span>
+                    <Link
+                      href={`/campaigns/${c.id}`}
+                      className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                    >
+                      {c.name}
+                    </Link>
                     {c.ai_spin_enabled && (
                       <span className="ml-2 inline-flex items-center gap-1 text-xs text-indigo-600">
                         <Icon.Ai className="h-3 w-3" aria-hidden="true" />

@@ -120,6 +120,33 @@ export interface Campaign {
   skipped: number;
 }
 
+/** GET /api/campaigns/:id */
+export interface CampaignDetail {
+  campaign: {
+    id: string;
+    name: string;
+    status: string;
+    content_template: string | null;
+    hashtags: string[];
+    ai_spin_enabled: boolean;
+    schedule_type: string;
+    created_at: string;
+  };
+  posts: Array<{
+    id: string;
+    content: string;
+    status: PostStatus;
+    status_reason: string | null;
+    scheduled_at: string;
+    published_at: string | null;
+    permalink: string | null;
+    retry_count: number;
+    target_name: string;
+    target_type: TargetType;
+    platform: Platform;
+  }>;
+}
+
 /** Lỗi 400 khi chọn target không đăng được qua API chính thức. */
 export interface BlockedTargetsError {
   message: string;

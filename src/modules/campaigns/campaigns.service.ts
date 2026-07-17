@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { query, withTransaction } from '../../shared/db';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -93,9 +93,34 @@ export class CampaignsService {
         aiSpin: dto.aiSpin ?? false,
         hashtags,
         scheduledAt,
-        message: 'Đã lên lịch. Feeder sẽ nạp vào queue khi đến giờ.',
+        message: 'Đã lên lịch. Bài sẽ được đăng ở lần chạy tự động gần nhất.',
       };
     });
+  }
+
+  // Chi tiết một chiến dịch + danh sách bài con. Kiểm tra c.user_id = $2 ngay
+  // trong WHERE — không để user này xem chiến dịch của user khác.
+  async findOne(userId: string, campaignId: string) {
+    const [campaign] = await query(
+      `SELECT id, name, status, content_template, hashtags, ai_spin_enabled,
+              schedule_type, created_at
+       FROM campaigns WHERE id = $1 AND user_id = $2`,
+      [campaignId, userId],
+    );
+    if (!campaign) throw new NotFoundException('Không tìm thấy chiến dịch này');
+
+    const posts = await query(
+      `SELECT p.id, p.content, p.status, p.status_reason, p.scheduled_at,
+              p.published_at, p.permalink, p.retry_count,
+              t.name AS target_name, t.target_type, sa.platform
+       FROM posts p
+       JOIN targets t          ON t.id = p.target_id
+       JOIN social_accounts sa ON sa.id = t.social_account_id
+       WHERE p.campaign_id = $1
+       ORDER BY t.name`,
+      [campaignId],
+    );
+    return { campaign, posts };
   }
 
   async findAll(userId: string) {

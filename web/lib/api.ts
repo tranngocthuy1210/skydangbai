@@ -9,6 +9,7 @@ import {
 import { clearToken, getToken } from './auth-store';
 import type {
   Campaign,
+  CampaignDetail,
   LogSummary,
   PostDetail,
   PostLog,
@@ -99,6 +100,8 @@ const liveApi = {
 
   getCampaigns: () => request<Campaign[]>('/campaigns'),
 
+  getCampaignDetail: (id: string) => request<CampaignDetail>(`/campaigns/${id}`),
+
   createCampaign: (payload: {
     name: string;
     content: string;
@@ -159,6 +162,10 @@ const demoApi = {
   getAccounts: async () => DEMO_ACCOUNTS,
 
   getCampaigns: async () => DEMO_CAMPAIGNS,
+
+  getCampaignDetail: async (_id: string): Promise<CampaignDetail> => {
+    throw new ApiError(0, null, 'Bản demo không có chi tiết chiến dịch.');
+  },
 
   createCampaign: async (_payload: {
     name: string;

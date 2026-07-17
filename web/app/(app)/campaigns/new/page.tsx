@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TargetPicker } from '@/components/TargetPicker';
+import { EmojiPicker } from '@/components/EmojiPicker';
 import { PLATFORM_LABEL } from '@/lib/format';
 import { Icon, PLATFORM_ICON } from '@/lib/icons';
 import { ApiError, api } from '@/lib/api';
@@ -16,6 +17,27 @@ export default function NewCampaignPage() {
 
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  // Chèn emoji tại vị trí con trỏ (không phải nối vào cuối) — giữ đúng chỗ user
+  // đang gõ. Sau khi chèn, đặt lại con trỏ ngay sau emoji.
+  function insertEmoji(emoji: string) {
+    const ta = contentRef.current;
+    if (!ta) {
+      setContent((c) => c + emoji);
+      return;
+    }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const next = content.slice(0, start) + emoji + content.slice(end);
+    setContent(next);
+    // Đợi React render xong rồi mới đặt con trỏ.
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = start + emoji.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  }
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [aiSpin, setAiSpin] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -126,11 +148,15 @@ export default function NewCampaignPage() {
             </div>
 
             <div>
-              <label htmlFor="content" className="mb-1 block text-sm font-medium text-slate-700">
-                Nội dung
-              </label>
+              <div className="mb-1 flex items-center justify-between">
+                <label htmlFor="content" className="block text-sm font-medium text-slate-700">
+                  Nội dung
+                </label>
+                <EmojiPicker onPick={insertEmoji} />
+              </div>
               <textarea
                 id="content"
+                ref={contentRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={7}
