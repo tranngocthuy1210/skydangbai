@@ -22,6 +22,7 @@ interface PostRow {
   target_type: TargetType;
   is_publishable: boolean;
   publish_note: string | null;
+  target_token_enc: string | null;
   account_id: string;
   platform: string;
   access_token_enc: string;
@@ -40,6 +41,7 @@ async function processJob(job: Job<PublishJobData>): Promise<void> {
   const [post] = await query<PostRow>(
     `SELECT p.id, p.content, p.media_urls, p.status, p.platform_post_id,
             t.platform_target_id, t.target_type, t.is_publishable, t.publish_note,
+            t.target_token_enc,
             sa.id AS account_id, sa.platform, sa.access_token_enc, sa.token_expires_at,
             c.user_id
      FROM posts p
@@ -91,9 +93,12 @@ async function processJob(job: Job<PublishJobData>): Promise<void> {
     throw new PublishError('RATE_LIMITED', true);
   }
 
-  // 5) Chuẩn bị token (refresh proactive nếu sắp hết hạn trong 5 phút).
-  let accessToken = decryptToken(post.access_token_enc);
+  // 5) Chuẩn bị token.
+  // Facebook cấp token RIÊNG cho từng Page (target_token_enc) — phải dùng đúng
+  // token đó mới đăng được, và nó gần như không hết hạn nên bỏ qua refresh.
+  let accessToken = decryptToken(post.target_token_enc ?? post.access_token_enc);
   const expiringSoon =
+    !post.target_token_enc &&
     post.token_expires_at &&
     new Date(post.token_expires_at).getTime() - Date.now() < 5 * 60_000;
   if (expiringSoon) {

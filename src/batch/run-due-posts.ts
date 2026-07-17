@@ -40,6 +40,7 @@ interface PostRow {
   target_type: TargetType;
   is_publishable: boolean;
   publish_note: string | null;
+  target_token_enc: string | null;
   account_id: string;
   platform: string;
   access_token_enc: string;
@@ -72,6 +73,7 @@ async function loadPosts(ids: string[]): Promise<PostRow[]> {
   return query<PostRow>(
     `SELECT p.id, p.content, p.media_urls, p.status, p.platform_post_id,
             t.platform_target_id, t.target_type, t.is_publishable, t.publish_note,
+            t.target_token_enc,
             sa.id AS account_id, sa.platform, sa.access_token_enc, sa.token_expires_at,
             c.user_id
      FROM posts p
@@ -85,7 +87,7 @@ async function loadPosts(ids: string[]): Promise<PostRow[]> {
 
 type Outcome = 'success' | 'failed' | 'skipped' | 'rescheduled';
 
-/** Xử lý một bài trọn gói: kiểm tra target, token, gọi API, ghi log, cập nhật trạng thái. */
+/** Kiểm tra target đăng được không, rồi chọn đúng token để đăng. */
 async function processOnePost(post: PostRow): Promise<Outcome> {
   const startedAt = Date.now();
 
@@ -106,8 +108,17 @@ async function processOnePost(post: PostRow): Promise<Outcome> {
     return 'skipped';
   }
 
-  // 2) Token: refresh chủ động nếu sắp hết hạn trong 5 phút.
-  let accessToken = decryptToken(post.access_token_enc);
+  // 2) Chọn token.
+  // Facebook cấp cho MỖI PAGE một token riêng (target_token_enc) — phải dùng
+  // đúng token đó mới đăng được, và nó gần như không hết hạn nên khỏi refresh.
+  // Nền tảng khác (mock, LinkedIn) dùng token cấp tài khoản, có thể cần refresh.
+  let accessToken: string;
+  if (post.target_token_enc) {
+    accessToken = decryptToken(post.target_token_enc);
+    return publishWithToken(post, accessToken, startedAt);
+  }
+
+  accessToken = decryptToken(post.access_token_enc);
   const expiringSoon =
     post.token_expires_at &&
     new Date(post.token_expires_at).getTime() - Date.now() < 5 * 60_000;
@@ -130,6 +141,15 @@ async function processOnePost(post: PostRow): Promise<Outcome> {
     }
   }
 
+  return publishWithToken(post, accessToken, startedAt);
+}
+
+/** Chọn adapter, gọi API đăng bài, ghi log — phần chung cho mọi loại token. */
+async function publishWithToken(
+  post: PostRow,
+  accessToken: string,
+  startedAt: number,
+): Promise<Outcome> {
   // 3) Adapter theo nền tảng.
   const adapter = getAdapter(post.platform);
   if (!adapter) {
