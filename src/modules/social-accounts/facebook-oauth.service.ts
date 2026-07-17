@@ -26,9 +26,8 @@ export class FacebookOauthService {
   /**
    * URL đưa người dùng tới trang xin quyền của Facebook.
    *
-   * ⚠️ `state` đang mang userId. Đúng chuẩn thì state phải là chuỗi ngẫu nhiên
-   * có ký (chống CSRF) — hiện tại hệ thống chưa có auth thật (resolveUserId chỉ
-   * đọc header), nên đây là điểm PHẢI sửa cùng lúc với việc làm JWT.
+   * `state` là JWT ngắn hạn do AuthService ký (xem signOauthState) — vừa không
+   * đoán được (chống CSRF), vừa mang userId qua vòng chuyển hướng của Facebook.
    */
   buildAuthUrl(state: string): string {
     const params = new URLSearchParams({

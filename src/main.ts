@@ -11,7 +11,7 @@ async function bootstrap() {
   // Danh sách origin lấy từ CORS_ORIGIN, mặc định localhost:3001.
   app.enableCors({
     origin: env.corsOrigin,
-    allowedHeaders: ['Content-Type', 'x-user-id'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, transform: true }),

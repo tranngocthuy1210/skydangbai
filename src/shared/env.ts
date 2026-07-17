@@ -16,6 +16,13 @@ export const env = {
   // Origin của frontend web/. Nhiều domain thì ngăn cách bằng dấu phẩy.
   corsOrigin: (process.env.CORS_ORIGIN ?? 'http://localhost:3001').split(','),
 
+  // ===== Xác thực =====
+  // Khóa ký JWT. KHÁC với TOKEN_ENC_KEY (khóa mã hóa token MXH) — đừng dùng chung.
+  // Rỗng ở production = mọi request bị từ chối (xem jwt-auth.guard.ts), cố ý:
+  // thà chết hẳn còn hơn chạy với khóa mặc định ai cũng đoán được.
+  jwtSecret: process.env.JWT_SECRET ?? '',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+
   // ===== Facebook (Meta App) =====
   // Lấy ở developers.facebook.com → App settings → Basic (xem docs/META_SETUP.md).
   facebookAppId: process.env.FACEBOOK_APP_ID ?? '',

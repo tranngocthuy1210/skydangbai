@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { SpinDto, HashtagDto } from './dto/ai.dto';
-import { resolveUserId } from '../../common/current-user';
+import { CurrentUser } from '../../common/auth';
 
 // AI Studio: spin nội dung, gợi ý hashtag, phân tích giờ vàng.
+// Cả 3 endpoint đều cần đăng nhập — chúng tiêu tiền API của bạn, để mở là
+// người lạ đốt hạn mức Anthropic của bạn miễn phí.
 @Controller('ai')
 export class AiController {
   constructor(private readonly ai: AiService) {}
@@ -25,8 +27,7 @@ export class AiController {
   }
 
   @Get('optimal-times')
-  async optimalTimes(@Headers('x-user-id') userIdHeader: string) {
-    const userId = await resolveUserId(userIdHeader);
+  async optimalTimes(@CurrentUser() userId: string) {
     return this.ai.analyzeOptimalTimes(userId);
   }
 }

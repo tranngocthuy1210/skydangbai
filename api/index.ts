@@ -30,7 +30,7 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: env.corsOrigin,
-    allowedHeaders: ['Content-Type', 'x-user-id'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init(); // KHÔNG dùng listen() — Vercel tự lo cổng/HTTP
