@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { IS_DEMO, api } from '@/lib/api';
+import { clearToken } from '@/lib/auth-store';
 import { Icon } from '@/lib/icons';
 
 const NAV = [
@@ -15,7 +16,13 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [needsReauth, setNeedsReauth] = useState(0);
+
+  function logout() {
+    clearToken();
+    router.push('/login');
+  }
 
   // Badge đỏ trên "Tài khoản" khi có tài khoản cần kết nối lại.
   // Token hết hạn là nguyên nhân số 1 khiến chiến dịch chết hàng loạt, và nó
@@ -87,6 +94,17 @@ export function Sidebar() {
           <Icon.Plus className="h-4 w-4" aria-hidden="true" />
           Tạo bài
         </Link>
+
+        {!IS_DEMO && (
+          <button
+            type="button"
+            onClick={logout}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+          >
+            <Icon.Logout className="h-4 w-4" aria-hidden="true" />
+            Đăng xuất
+          </button>
+        )}
       </div>
     </aside>
   );

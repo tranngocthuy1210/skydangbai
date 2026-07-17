@@ -27,6 +27,7 @@ import {
   Link2,
   Linkedin,
   Lock,
+  LogOut,
   Megaphone,
   Music2,
   Plus,
@@ -75,6 +76,8 @@ export const Icon = {
   Logs: ScrollText,
   Accounts: Link2,
   Brand: Rocket,
+  Logout: LogOut,
+  Facebook, // nút "Kết nối Facebook Page"
 } as const;
 
 // ---- Icon nền tảng ----

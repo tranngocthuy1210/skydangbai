@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { IS_DEMO, api } from '@/lib/api';
 import { PLATFORM_LABEL, formatNumber } from '@/lib/format';
 import { Icon, PLATFORM_ICON, type LucideIcon } from '@/lib/icons';
 import type { SocialAccount, Target } from '@/lib/types';
@@ -32,10 +33,12 @@ const ACCOUNT_STATUS: Record<
   },
 };
 
-export default function AccountsPage() {
+function AccountsInner() {
+  const params = useSearchParams();
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     Promise.all([api.getAccounts(), api.getTargets()])
@@ -46,12 +49,63 @@ export default function AccountsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Lỗi không xác định'));
   }, []);
 
+  // Facebook đẩy người dùng về đây kèm ?fb=... — dịch thành thông báo dễ hiểu.
+  const fb = params.get('fb');
+  const fbBanner =
+    fb === 'connected'
+      ? { ok: true, msg: `Đã kết nối ${params.get('pages') ?? ''} Page thành công.` }
+      : fb === 'cancelled'
+        ? { ok: false, msg: 'Bạn đã hủy kết nối Facebook.' }
+        : fb === 'error'
+          ? { ok: false, msg: `Kết nối thất bại: ${params.get('reason') ?? 'lỗi không rõ'}` }
+          : null;
+
+  async function connectFacebook() {
+    setConnecting(true);
+    setError(null);
+    try {
+      // Backend trả URL đã kèm state ký sẵn — chỉ việc chuyển hướng.
+      const { url } = await api.getFacebookConnectUrl();
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không lấy được liên kết Facebook');
+      setConnecting(false);
+    }
+  }
+
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900">Tài khoản mạng xã hội</h1>
-      <p className="mt-0.5 text-sm text-slate-500">
-        Hệ thống chỉ đăng qua API chính thức của nền tảng.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Tài khoản mạng xã hội</h1>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Hệ thống chỉ đăng qua API chính thức của nền tảng.
+          </p>
+        </div>
+        {!IS_DEMO && (
+          <button
+            type="button"
+            onClick={connectFacebook}
+            disabled={connecting}
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-[#1877F2] px-4 py-2 text-sm font-medium text-white hover:bg-[#166fe0] disabled:opacity-60"
+          >
+            <Icon.Facebook className="h-4 w-4" aria-hidden="true" />
+            {connecting ? 'Đang chuyển…' : 'Kết nối Facebook Page'}
+          </button>
+        )}
+      </div>
+
+      {fbBanner && (
+        <div
+          className={`mt-4 rounded-lg border p-4 text-sm ${
+            fbBanner.ok
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-amber-200 bg-amber-50 text-amber-800'
+          }`}
+        >
+          {fbBanner.msg}
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -163,11 +217,20 @@ export default function AccountsPage() {
             />
             <h3 className="mt-3 font-medium text-slate-900">Chưa kết nối tài khoản nào</h3>
             <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-              Kết nối Facebook Page hoặc LinkedIn để bắt đầu đăng bài tự động.
+              Bấm “Kết nối Facebook Page” ở trên để bắt đầu đăng bài tự động.
             </p>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function AccountsPage() {
+  // useSearchParams đòi Suspense ở App Router.
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-slate-400">Đang tải…</div>}>
+      <AccountsInner />
+    </Suspense>
   );
 }

@@ -6,6 +6,7 @@ import {
   DEMO_SUMMARY,
   DEMO_TARGETS,
 } from './demo-data';
+import { clearToken, getToken } from './auth-store';
 import type {
   Campaign,
   LogSummary,
@@ -15,11 +16,7 @@ import type {
   Target,
 } from './types';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
-
-// Auth hiện là stub ở backend: header x-user-id. Bỏ trống → backend tự dùng
-// user demo đầu tiên. Production: thay bằng JWT từ session.
-const DEMO_USER_ID = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? '';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://skydangbai-api.vercel.app/api';
 
 /** Lỗi HTTP có kèm body đã parse — để UI đọc được `blockedTargets`. */
 export class ApiError extends Error {
@@ -38,7 +35,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string>),
   };
-  if (DEMO_USER_ID) headers['x-user-id'] = DEMO_USER_ID;
+  // Gắn JWT vào mọi request nếu đã đăng nhập.
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   let res: Response;
   try {
@@ -54,6 +53,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const body = await res.json().catch(() => null);
   if (!res.ok) {
+    // 401 = token hết hạn/không hợp lệ → xóa và đá về login. Bỏ qua chính các
+    // endpoint đăng nhập (401 ở đó là "sai mật khẩu", không phải "hết phiên").
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      clearToken();
+      if (typeof window !== 'undefined') window.location.href = '/login';
+    }
     const msg =
       (body as { message?: string | string[] })?.message ??
       `Lỗi ${res.status}`;
@@ -120,6 +125,13 @@ const liveApi = {
       method: 'POST',
       body: JSON.stringify({ content, count, platform }),
     }),
+
+  // Trả về URL Facebook để frontend tự chuyển hướng. Là POST (không phải link
+  // <a>) vì cần gửi kèm JWT — trình duyệt không gắn header khi điều hướng thường.
+  getFacebookConnectUrl: () =>
+    request<{ url: string }>('/social-accounts/facebook/connect-url', {
+      method: 'POST',
+    }),
 };
 
 // ---- Chế độ demo ------------------------------------------------------
@@ -171,9 +183,39 @@ const demoApi = {
     count,
     variants: Array.from({ length: count }, () => content),
   }),
+
+  getFacebookConnectUrl: async (): Promise<{ url: string }> => {
+    throw new ApiError(0, null, 'Bản demo không kết nối Facebook được.');
+  },
 } satisfies typeof liveApi;
 
 /** Bật bằng NEXT_PUBLIC_DEMO_MODE=1. KHÔNG bật khi đã có backend thật. */
 export const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === '1';
 
 export const api = IS_DEMO ? demoApi : liveApi;
+
+// ---- Xác thực ----
+// Tách riêng khỏi `api`: đăng nhập LUÔN dùng backend thật, không dính chế độ demo.
+export interface AuthResult {
+  accessToken: string;
+  user: { id: string; email: string; fullName: string | null };
+}
+
+export const authApi = {
+  register: (email: string, password: string, fullName?: string) =>
+    request<AuthResult>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, fullName }),
+    }),
+
+  login: (email: string, password: string) =>
+    request<AuthResult>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  me: () =>
+    request<{ id: string; email: string; full_name: string | null; plan: string }>(
+      '/auth/me',
+    ),
+};
