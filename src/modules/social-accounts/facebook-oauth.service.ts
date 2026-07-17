@@ -117,22 +117,42 @@ export class FacebookOauthService {
     );
 
     // 6) Lưu từng Page kèm token riêng (đã mã hóa).
+    //    is_active=true để hồi sinh Page từng bị ngắt rồi nay cấp quyền lại.
     const list = pages.data ?? [];
     for (const p of list) {
       await query(
         `INSERT INTO targets
            (social_account_id, target_type, platform_target_id, name, member_count,
-            target_token_enc, is_publishable, last_synced_at)
-         VALUES ($1,'page',$2,$3,$4,$5,true,now())
+            target_token_enc, is_publishable, is_active, last_synced_at)
+         VALUES ($1,'page',$2,$3,$4,$5,true,true,now())
          ON CONFLICT (social_account_id, platform_target_id) DO UPDATE
            SET name             = EXCLUDED.name,
                member_count     = EXCLUDED.member_count,
                target_token_enc = EXCLUDED.target_token_enc,
                is_publishable   = true,
+               is_active        = true,
                last_synced_at   = now()`,
         [account.id, p.id, p.name, p.fan_count ?? null, encryptToken(p.access_token)],
       );
     }
+
+    // 7) ĐỒNG BỘ NGƯỢC — bước dễ quên nhưng bắt buộc.
+    //    Page nào KHÔNG còn trong danh sách Facebook trả về = người dùng đã bỏ
+    //    chọn hoặc gỡ quyền. Không xử lý thì dòng cũ nằm lại, vẫn hiện ra cho
+    //    người dùng chọn, ôm token đã chết, và chỉ vỡ vào đúng lúc chiến dịch
+    //    thật chạy — kiểu lỗi tệ nhất.
+    //
+    //    Xóa luôn token: nó không giải mã được nữa (hoặc đã bị thu hồi), giữ
+    //    lại chỉ tổ rác. Giữ lại DÒNG (không DELETE) để post_logs cũ còn tham chiếu.
+    await query(
+      `UPDATE targets
+          SET is_active        = false,
+              target_token_enc = NULL,
+              publish_note     = 'Bạn đã ngắt kết nối Page này. Kết nối lại để dùng.'
+        WHERE social_account_id = $1
+          AND platform_target_id <> ALL($2::text[])`,
+      [account.id, list.map((p) => p.id)],
+    );
 
     return { accountId: account.id, name: me.name, pages: list.length };
   }

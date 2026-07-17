@@ -46,6 +46,7 @@ async function main(): Promise<void> {
   console.log(`[verify] Kiểm tra ${rows.length} Page Facebook...\n`);
   let ok = 0;
   let bad = 0;
+  let undecryptable = 0;
 
   for (const r of rows) {
     // --- Bước 1: giải mã. Hỏng ở đây = TOKEN_ENC_KEY lệch. ---
@@ -53,12 +54,14 @@ async function main(): Promise<void> {
     try {
       token = decryptToken(r.target_token_enc ?? r.account_token_enc);
     } catch {
+      // KHÔNG khẳng định nguyên nhân ở đây: cùng một khóa giải mã mọi dòng, nên
+      // số Page hỏng mới là manh mối. Đoán chắc nịch một nguyên nhân sẽ đẩy
+      // người đọc đi sửa nhầm chỗ — chính xác điều đã xảy ra khi tôi viết bản đầu.
       console.error(
         `❌ ${r.target_name}\n` +
-          `   KHÔNG GIẢI MÃ ĐƯỢC token.\n` +
-          `   → TOKEN_ENC_KEY của GitHub đang LỆCH với khóa mà Vercel dùng lúc kết nối.\n` +
-          `   → Sửa: đặt cùng một khóa ở cả hai nơi, rồi chạy lại luồng connect.`,
+          `   KHÔNG GIẢI MÃ ĐƯỢC token (xem dòng tổng kết cuối để biết nguyên nhân).`,
       );
+      undecryptable++;
       bad++;
       continue;
     }
@@ -90,6 +93,30 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n[verify] Kết quả: ✅ ${ok} tốt   ❌ ${bad} có vấn đề`);
+
+  // Chẩn đoán lỗi giải mã dựa trên TỶ LỆ hỏng — cùng một khóa dùng cho mọi dòng,
+  // nên "hỏng hết" và "hỏng vài cái" là hai bệnh khác hẳn nhau.
+  if (undecryptable > 0) {
+    if (undecryptable === rows.length) {
+      console.error(
+        `\n⚠️  TẤT CẢ ${rows.length} Page đều không giải mã được.\n` +
+          `   → Nguyên nhân gần như chắc chắn: TOKEN_ENC_KEY của GitHub LỆCH với\n` +
+          `     khóa mà Vercel dùng lúc kết nối.\n` +
+          `   → Sửa: đặt CÙNG một khóa ở cả hai nơi (nhớ Redeploy Vercel), rồi\n` +
+          `     chạy lại luồng connect.`,
+      );
+    } else {
+      console.error(
+        `\n⚠️  ${undecryptable}/${rows.length} Page không giải mã được, số còn lại vẫn tốt.\n` +
+          `   → Khóa KHÔNG lệch (nếu lệch thì đã hỏng hết). Các Page này đơn giản là\n` +
+          `     chưa được kết nối lại sau lần đổi khóa gần nhất — Facebook chỉ cập\n` +
+          `     nhật những Page bạn tick chọn ở màn hình cấp quyền.\n` +
+          `   → Sửa: chạy lại connect và CHỌN các Page này; hoặc nếu không dùng nữa\n` +
+          `     thì chạy connect với đúng các Page cần — hệ thống sẽ tự ngắt phần còn lại.`,
+      );
+    }
+  }
+
   if (bad > 0) {
     // Thoát mã 1 để job GitHub hiện ĐỎ — có vấn đề thì phải thấy ngay,
     // không để lẫn vào đống log xanh.

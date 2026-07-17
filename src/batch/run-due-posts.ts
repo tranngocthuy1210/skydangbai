@@ -39,6 +39,7 @@ interface PostRow {
   platform_target_id: string;
   target_type: TargetType;
   is_publishable: boolean;
+  is_active: boolean;
   publish_note: string | null;
   target_token_enc: string | null;
   account_id: string;
@@ -72,8 +73,8 @@ async function claimDuePosts(limit: number): Promise<string[]> {
 async function loadPosts(ids: string[]): Promise<PostRow[]> {
   return query<PostRow>(
     `SELECT p.id, p.content, p.media_urls, p.status, p.platform_post_id,
-            t.platform_target_id, t.target_type, t.is_publishable, t.publish_note,
-            t.target_token_enc,
+            t.platform_target_id, t.target_type, t.is_publishable, t.is_active,
+            t.publish_note, t.target_token_enc,
             sa.id AS account_id, sa.platform, sa.access_token_enc, sa.token_expires_at,
             c.user_id
      FROM posts p
@@ -91,11 +92,15 @@ type Outcome = 'success' | 'failed' | 'skipped' | 'rescheduled';
 async function processOnePost(post: PostRow): Promise<Outcome> {
   const startedAt = Date.now();
 
-  // 1) Official API only: target không đăng được → bỏ qua (không phải lỗi).
-  if (!post.is_publishable) {
-    const reason =
-      post.publish_note ??
-      `Không hỗ trợ đăng tự động lên ${post.target_type} của ${post.platform}.`;
+  // 1) Bỏ qua nếu target không đăng được — hai lý do khác nhau:
+  //    - is_publishable=false: nền tảng không có API (vd Facebook Group)
+  //    - is_active=false: người dùng đã ngắt kết nối Page này
+  //    Cả hai đều KHÔNG phải lỗi hệ thống → 'skipped', không tính vào tỷ lệ lỗi.
+  if (!post.is_publishable || !post.is_active) {
+    const reason = !post.is_active
+      ? (post.publish_note ?? 'Mục tiêu đã bị ngắt kết nối.')
+      : (post.publish_note ??
+        `Không hỗ trợ đăng tự động lên ${post.target_type} của ${post.platform}.`);
     await query(
       `UPDATE posts SET status='skipped', status_reason=$2, updated_at=now() WHERE id=$1`,
       [post.id, reason],
