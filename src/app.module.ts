@@ -5,6 +5,7 @@ import { PostLogsModule } from './modules/post-logs/post-logs.module';
 import { SocialAccountsModule } from './modules/social-accounts/social-accounts.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 import { HealthController } from './modules/health.controller';
 import { JwtAuthGuard } from './common/auth';
 
@@ -15,6 +16,7 @@ import { JwtAuthGuard } from './common/auth';
     PostLogsModule,
     SocialAccountsModule,
     AiModule,
+    UploadsModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -7,6 +7,7 @@ import {
   DEMO_TARGETS,
 } from './demo-data';
 import { clearToken, getToken } from './auth-store';
+import { resizeImage } from './image';
 import type {
   Campaign,
   CampaignDetail,
@@ -109,6 +110,7 @@ const liveApi = {
     scheduledAt?: string;
     hashtags?: string[];
     aiSpin?: boolean;
+    mediaUrls?: string[];
   }) =>
     request<{ campaignId: string; postsCreated: number; hashtags: string[] }>(
       '/campaigns',
@@ -174,6 +176,7 @@ const demoApi = {
     scheduledAt?: string;
     hashtags?: string[];
     aiSpin?: boolean;
+    mediaUrls?: string[];
   }): Promise<{ campaignId: string; postsCreated: number; hashtags: string[] }> => {
     // Không có backend để lưu — nói thật thay vì giả vờ thành công rồi để
     // user quay lại tìm chiến dịch không tồn tại.
@@ -206,6 +209,17 @@ export const api = IS_DEMO ? demoApi : liveApi;
 export interface AuthResult {
   accessToken: string;
   user: { id: string; email: string; fullName: string | null };
+}
+
+// Tải ảnh: thu nhỏ ở client → gửi base64 → nhận URL công khai (Vercel Blob).
+// Đứng riêng vì luôn cần backend thật + xác thực, không dính chế độ demo.
+export async function uploadImage(file: File): Promise<string> {
+  const { dataBase64, contentType } = await resizeImage(file);
+  const res = await request<{ url: string }>('/upload', {
+    method: 'POST',
+    body: JSON.stringify({ filename: file.name, contentType, dataBase64 }),
+  });
+  return res.url;
 }
 
 export const authApi = {

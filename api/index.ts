@@ -12,7 +12,7 @@ import 'reflect-metadata';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 import express from 'express';
 import { AppModule } from '../src/app.module';
 import { env } from '../src/shared/env';
@@ -24,14 +24,17 @@ const server = express();
 let bootstrapPromise: Promise<void> | null = null;
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
-    logger: ['error', 'warn'], // bớt log ồn trong môi trường serverless
-  });
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule,
+    new ExpressAdapter(server),
+    { logger: ['error', 'warn'] }, // bớt log ồn trong môi trường serverless
+  );
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: env.corsOrigin,
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+  app.useBodyParser('json', { limit: '5mb' }); // ảnh base64 vượt mặc định 100kb
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init(); // KHÔNG dùng listen() — Vercel tự lo cổng/HTTP
 }

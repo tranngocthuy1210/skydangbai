@@ -6,7 +6,7 @@ import { TargetPicker } from '@/components/TargetPicker';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { PLATFORM_LABEL } from '@/lib/format';
 import { Icon, PLATFORM_ICON } from '@/lib/icons';
-import { ApiError, api } from '@/lib/api';
+import { ApiError, api, uploadImage } from '@/lib/api';
 import type { BlockedTargetsError, Target } from '@/lib/types';
 
 const STEPS = ['Nội dung', 'Mục tiêu', 'Lịch đăng'];
@@ -40,6 +40,9 @@ export default function NewCampaignPage() {
   }
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [aiSpin, setAiSpin] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState('');
 
@@ -54,6 +57,22 @@ export default function NewCampaignPage() {
   }, []);
 
   const chosen = targets.filter((t) => selected.includes(t.id));
+
+  async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // cho phép chọn lại cùng file sau khi xóa
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const url = await uploadImage(file);
+      setImageUrl(url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Tải ảnh thất bại');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function suggestHashtags() {
     if (!content.trim()) return;
@@ -80,6 +99,7 @@ export default function NewCampaignPage() {
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
         hashtags,
         aiSpin,
+        mediaUrls: imageUrl ? [imageUrl] : undefined,
       });
       router.push(`/logs`);
       return res;
@@ -168,6 +188,45 @@ export default function NewCampaignPage() {
               </p>
             </div>
 
+            {/* Ảnh đính kèm — tải từ máy, thu nhỏ ở trình duyệt rồi upload. */}
+            <div>
+              <span className="mb-1 block text-sm font-medium text-slate-700">
+                Ảnh (tùy chọn)
+              </span>
+              {imageUrl ? (
+                <div className="relative inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
+                    alt="Ảnh đính kèm"
+                    className="max-h-48 rounded-lg border border-slate-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl(null)}
+                    className="absolute right-2 top-2 rounded-full bg-slate-900/70 px-2 py-0.5 text-xs text-white hover:bg-slate-900"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 hover:border-indigo-400 hover:text-indigo-600">
+                  <Icon.Image className="h-4 w-4" aria-hidden="true" />
+                  {uploading ? 'Đang tải ảnh…' : 'Chọn ảnh từ máy'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImage}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              )}
+              {uploadError && (
+                <p className="mt-1 text-xs text-red-600">{uploadError}</p>
+              )}
+            </div>
+
             <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
               <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700">
                 <Icon.Ai className="h-4 w-4 text-indigo-600" aria-hidden="true" />
@@ -241,6 +300,14 @@ export default function NewCampaignPage() {
                           <span className="text-slate-300">(chưa có nội dung)</span>
                         )}
                       </p>
+                      {imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={imageUrl}
+                          alt=""
+                          className="mt-2 max-h-40 rounded border border-slate-200"
+                        />
+                      )}
                     </article>
                   );
                 })}

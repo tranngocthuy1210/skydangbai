@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Facebook,
   FlaskConical,
+  Image as ImageIcon,
   Inbox,
   Instagram,
   LayoutDashboard,
@@ -67,6 +68,7 @@ export const Icon = {
   Ai: Sparkles,
   Empty: Inbox,
   Permalink: ExternalLink,
+  Image: ImageIcon,
   Send,
   Plus,
 

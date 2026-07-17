@@ -26,18 +26,23 @@ export const facebookAdapter: SocialAdapter = {
       });
     }
 
-    const url = `https://graph.facebook.com/v19.0/${targetPlatformId}/feed`;
+    // Có ảnh → đăng bài KÈM ẢNH qua /photos (caption = nội dung).
+    // Không ảnh → bài chữ thường qua /feed.
+    // Ảnh phải là URL công khai để Facebook tự tải về — đúng thứ Vercel Blob cho.
+    const hasImage = Boolean(mediaUrls && mediaUrls.length > 0);
+    const url = hasImage
+      ? `https://graph.facebook.com/v19.0/${targetPlatformId}/photos`
+      : `https://graph.facebook.com/v19.0/${targetPlatformId}/feed`;
+    const payload: Record<string, string> = hasImage
+      ? { url: mediaUrls![0], caption: content, access_token: accessToken }
+      : { message: content, access_token: accessToken };
 
     let res: Response;
     try {
       res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: content,
-          link: mediaUrls?.[0],
-          access_token: accessToken,
-        }),
+        body: JSON.stringify(payload),
       });
     } catch {
       throw new PublishError('NETWORK', true);
@@ -46,9 +51,12 @@ export const facebookAdapter: SocialAdapter = {
     const body: any = await res.json().catch(() => ({}));
 
     if (res.ok && body.id) {
+      // /photos trả về post_id (id của bài trên feed) tách khỏi id ảnh — dùng
+      // post_id để link tới bài. /feed chỉ có id.
+      const postId = body.post_id ?? body.id;
       return {
-        platformPostId: body.id,
-        permalink: `https://facebook.com/${body.id}`,
+        platformPostId: postId,
+        permalink: `https://facebook.com/${postId}`,
         raw: body,
       };
     }
