@@ -11,6 +11,7 @@
     "start:worker": "ts-node -r tsconfig-paths/register src/worker/worker.ts",
     "start:feeder": "ts-node -r tsconfig-paths/register src/scheduler/feeder.ts",
     "start:batch": "ts-node -r tsconfig-paths/register src/batch/run-due-posts.ts",
+    "verify:connections": "ts-node -r tsconfig-paths/register src/batch/verify-connections.ts",
     "migrate": "ts-node scripts/migrate.ts",
     "seed": "ts-node scripts/seed.ts",
     "dev": "concurrently -n API,WORKER,FEEDER -c blue,green,magenta \"npm:start:api:dev\" \"npm:start:worker\" \"npm:start:feeder\""

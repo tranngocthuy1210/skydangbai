@@ -1,0 +1,26 @@
+name: Kiểm tra kết nối Facebook (không đăng bài)
+
+# Chạy tay để xác nhận: token trong DB giải mã được bằng TOKEN_ENC_KEY của
+# GitHub, VÀ Facebook còn chấp nhận token đó. Không đăng bất cứ thứ gì.
+#
+# Cố ý chạy ở đây (không phải Vercel) vì đây là môi trường mà job đăng bài
+# thật sự chạy — lỗi lệch khóa chỉ lộ ra ở đây.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    name: Kiểm tra token các Page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cài dependencies
+        run: npm install
+      - name: Kiểm tra kết nối
+        run: npm run verify:connections
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TOKEN_ENC_KEY: ${{ secrets.TOKEN_ENC_KEY }}
