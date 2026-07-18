@@ -31,16 +31,20 @@
 - **Đăng ảnh từ máy** — thu nhỏ ở client → Vercel Blob → Facebook `/photos`.
   Nửa upload **đã chạy thật**; nửa đăng lên Facebook chờ test end-to-end.
 - **Tài liệu tổng kết** `TONG_KET_DU_AN.md`.
+- **Nhiều ảnh một bài** (commit `b1b1102`) — adapter Facebook `attached_media` +
+  UI chọn nhiều ảnh. Đã qua CI; **chưa test đăng thật lên Page**.
 
 ---
 
 ## 3. Việc tiếp theo (backlog, ưu tiên từ trên xuống)
 
 1. **Test đăng ảnh end-to-end** (việc gần nhất): đăng nhập web → tạo chiến dịch có
-   ảnh, nhắm 1 Page → chạy `post-scheduler.yml` → mở Facebook Page xem bài **kèm
-   ảnh**. Nếu ảnh không lên, kiểm tra log batch (adapter `/photos`).
-2. **Nhiều ảnh một bài** — hiện 1 ảnh/bài. Facebook cần upload ảnh unpublished rồi
-   attach nhiều `attached_media`.
+   ảnh (1 ảnh HOẶC nhiều ảnh), nhắm 1 Page → chạy `post-scheduler.yml` → mở
+   Facebook Page xem bài **kèm ảnh**. Nếu ảnh không lên, kiểm tra log batch
+   (adapter `/photos` cho 1 ảnh, `/feed` + `attached_media` cho nhiều ảnh).
+2. ~~**Nhiều ảnh một bài**~~ ✅ ĐÃ CODE (commit `b1b1102`, CI xanh) — CHỜ TEST E2E.
+   Adapter: 2+ ảnh upload unpublished (`/photos?published=false`) lấy `media_fbid`
+   rồi `/feed` với `attached_media`. Frontend: chọn nhiều ảnh (tối đa 10/bài).
 3. **Dọn tài khoản test** — mấy user `imgtest-*@example.com` tạo khi dò lỗi (vô hại,
    không nối Page). Chưa có endpoint xóa user.
 4. **Tự đăng đúng giờ hơn** — cân nhắc thêm mốc cron, hoặc nút "đăng ngay" (khó với
