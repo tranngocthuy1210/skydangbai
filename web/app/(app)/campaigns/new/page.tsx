@@ -10,6 +10,7 @@ import { ApiError, api, uploadImage } from '@/lib/api';
 import type { BlockedTargetsError, Target } from '@/lib/types';
 
 const STEPS = ['Nội dung', 'Mục tiêu', 'Lịch đăng'];
+const MAX_IMAGES = 10;
 
 export default function NewCampaignPage() {
   const router = useRouter();
@@ -40,7 +41,8 @@ export default function NewCampaignPage() {
   }
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [aiSpin, setAiSpin] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // Nhiều ảnh một bài: Facebook đính kèm được nhiều ảnh qua attached_media.
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -59,19 +61,37 @@ export default function NewCampaignPage() {
   const chosen = targets.filter((t) => selected.includes(t.id));
 
   async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = ''; // cho phép chọn lại cùng file sau khi xóa
-    if (!file) return;
+    if (files.length === 0) return;
+
+    // Giới hạn số ảnh — tránh bài cồng kềnh và giữ trải nghiệm gọn.
+    const room = MAX_IMAGES - imageUrls.length;
+    if (room <= 0) {
+      setUploadError(`Tối đa ${MAX_IMAGES} ảnh mỗi bài.`);
+      return;
+    }
+    const toUpload = files.slice(0, room);
+
     setUploading(true);
     setUploadError(null);
     try {
-      const url = await uploadImage(file);
-      setImageUrl(url);
+      // Upload lần lượt rồi nối vào danh sách theo đúng thứ tự chọn.
+      const urls: string[] = [];
+      for (const file of toUpload) urls.push(await uploadImage(file));
+      setImageUrls((cur) => [...cur, ...urls]);
+      if (files.length > room) {
+        setUploadError(`Chỉ nhận ${room} ảnh (tối đa ${MAX_IMAGES} ảnh mỗi bài).`);
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Tải ảnh thất bại');
     } finally {
       setUploading(false);
     }
+  }
+
+  function removeImage(url: string) {
+    setImageUrls((cur) => cur.filter((u) => u !== url));
   }
 
   async function suggestHashtags() {
@@ -99,7 +119,7 @@ export default function NewCampaignPage() {
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
         hashtags,
         aiSpin,
-        mediaUrls: imageUrl ? [imageUrl] : undefined,
+        mediaUrls: imageUrls.length ? imageUrls : undefined,
       });
       router.push(`/logs`);
       return res;
@@ -188,34 +208,48 @@ export default function NewCampaignPage() {
               </p>
             </div>
 
-            {/* Ảnh đính kèm — tải từ máy, thu nhỏ ở trình duyệt rồi upload. */}
+            {/* Ảnh đính kèm — tải từ máy, thu nhỏ ở trình duyệt rồi upload.
+                Nhiều ảnh: mỗi thumbnail có nút xóa riêng. */}
             <div>
               <span className="mb-1 block text-sm font-medium text-slate-700">
-                Ảnh (tùy chọn)
+                Ảnh (tùy chọn) · {imageUrls.length}/{MAX_IMAGES}
               </span>
-              {imageUrl ? (
-                <div className="relative inline-block">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageUrl}
-                    alt="Ảnh đính kèm"
-                    className="max-h-48 rounded-lg border border-slate-200"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl(null)}
-                    className="absolute right-2 top-2 rounded-full bg-slate-900/70 px-2 py-0.5 text-xs text-white hover:bg-slate-900"
-                  >
-                    Xóa
-                  </button>
+
+              {imageUrls.length > 0 && (
+                <div className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {imageUrls.map((url, i) => (
+                    <div key={url} className="relative aspect-square">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={`Ảnh ${i + 1}`}
+                        className="h-full w-full rounded-lg border border-slate-200 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(url)}
+                        aria-label={`Xóa ảnh ${i + 1}`}
+                        className="absolute right-1 top-1 rounded-full bg-slate-900/70 px-2 py-0.5 text-xs text-white hover:bg-slate-900"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
+              )}
+
+              {imageUrls.length < MAX_IMAGES && (
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 hover:border-indigo-400 hover:text-indigo-600">
                   <Icon.Image className="h-4 w-4" aria-hidden="true" />
-                  {uploading ? 'Đang tải ảnh…' : 'Chọn ảnh từ máy'}
+                  {uploading
+                    ? 'Đang tải ảnh…'
+                    : imageUrls.length > 0
+                      ? 'Thêm ảnh'
+                      : 'Chọn ảnh từ máy'}
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleImage}
                     disabled={uploading}
                     className="hidden"
@@ -300,13 +334,20 @@ export default function NewCampaignPage() {
                           <span className="text-slate-300">(chưa có nội dung)</span>
                         )}
                       </p>
-                      {imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={imageUrl}
-                          alt=""
-                          className="mt-2 max-h-40 rounded border border-slate-200"
-                        />
+                      {imageUrls.length > 0 && (
+                        <div className="mt-2 grid grid-cols-2 gap-1.5">
+                          {imageUrls.map((url) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={url}
+                              src={url}
+                              alt=""
+                              className={`w-full rounded border border-slate-200 object-cover ${
+                                imageUrls.length === 1 ? 'col-span-2 max-h-40' : 'aspect-square'
+                              }`}
+                            />
+                          ))}
+                        </div>
                       )}
                     </article>
                   );
